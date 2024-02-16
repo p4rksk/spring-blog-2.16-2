@@ -1,15 +1,17 @@
 package shop.mtcoding.blog.board;
 
+import ch.qos.logback.core.joran.spi.ElementSelector;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import shop.mtcoding.blog.reply.ReplyRepository;
 import shop.mtcoding.blog.user.User;
 
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -20,68 +22,104 @@ public class BoardController {
     private final BoardRepository boardRepository;
     private final ReplyRepository replyRepository;
 
-    // ?title=제목1&content=내용1
-    // title=제목1&content=내용1
     @PostMapping("/board/{id}/update")
     public String update(@PathVariable int id, BoardRequest.UpdateDTO requestDTO){
-        // 1. 인증 체크
+        //  1. 인증 확인
         User sessionUser = (User) session.getAttribute("sessionUser");
         if(sessionUser == null){
             return "redirect:/loginForm";
         }
-
-        // 2. 권한 체크
+        //  2. 권한 확인
         Board board = boardRepository.findById(id);
-        if(board.getUserId() != sessionUser.getId()){
+        if (board.getUserId() != sessionUser.getId()){
             return "error/403";
         }
-
-        // 3. 핵심 로직
-        // update board_tb set title = ?, content = ? where id = ?;
+        //  3. 핵심 로직
+        //  update board_tb set title = ?, content = ? where id = ?;
         boardRepository.update(requestDTO, id);
 
         return "redirect:/board/"+id;
     }
 
-
     @GetMapping("/board/{id}/updateForm")
     public String updateForm(@PathVariable int id, HttpServletRequest request){
-        // 1. 인증 안되면 나가
+        //  인증 확인
         User sessionUser = (User) session.getAttribute("sessionUser");
-        if(sessionUser == null){
+        if (sessionUser == null) {   //  error : 401
             return "redirect:/loginForm";
         }
+        //  권한 확인
 
-        // 2. 권한 없으면 나가
-        // 모델 위임 (id로 board를 조회)
+
+        //  Model위임 id로 board를 조회
         Board board = boardRepository.findById(id);
-
         if(board.getUserId() != sessionUser.getId()){
             return "error/403";
         }
 
-        // 3. 가방에 담기
-        request.setAttribute("board", board);
+        //  가방에 담기
+        request.setAttribute("board",board);
 
         return "board/updateForm";
     }
 
+    // localhost:8080?page=1 -> page 값이 1
+// localhost:8080  -> page 값이 0
+    @GetMapping("/")
+    public String index(
+            HttpServletRequest request,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "") String keyword) {
 
-    @PostMapping("/board/{id}/delete")
-    public String delete(@PathVariable int id, HttpServletRequest request) {
-        // 1. 인증 안되면 나가
-        User sessionUser = (User) session.getAttribute("sessionUser");
-        if (sessionUser == null) { // 401
-            return "redirect:/loginForm";
+        // isEmpty -> null, 공백
+        // isBlank -> null, 공백, 화이트 스페이스
+
+        if (keyword.isBlank()) {
+            List<Board> boardList = boardRepository.findAll(page);
+            // 전체 페이지 개수
+            int count = boardRepository.count().intValue();
+
+            int namerge = count % 3 == 0 ? 0 : 1;
+            int allPageCount = count / 3 + namerge;
+
+            request.setAttribute("boardList", boardList);
+            request.setAttribute("first", page == 0);
+            request.setAttribute("last", allPageCount == page + 1);
+            request.setAttribute("prev", page - 1);
+            request.setAttribute("next", page + 1);
+            request.setAttribute("keyword", "");
+        } else {
+            List<Board> boardList = boardRepository.findAll(page, keyword);
+            // 전체 페이지 개수
+            int count = boardRepository.count(keyword).intValue();
+
+            int namerge = count % 3 == 0 ? 0 : 1;
+            int allPageCount = count / 3 + namerge;
+
+            request.setAttribute("boardList", boardList);
+            request.setAttribute("first", page == 0);
+            request.setAttribute("last", allPageCount == page + 1);
+            request.setAttribute("prev", page - 1);
+            request.setAttribute("next", page + 1);
+            request.setAttribute("keyword", keyword);
         }
 
-        // 2. 권한 없으면 나가
+        return "index";
+    }
+
+    @PostMapping("/board/{id}/delete")
+    public String delete (@PathVariable int id, HttpServletRequest request){
+
+        //  1. 인증 X
+        User sessionUser = (User) session.getAttribute("sessionUser");
+        if (sessionUser == null) {   //  error : 401
+            return "redirect:/loginForm";
+        }
+        //  2. 권한 X
         Board board = boardRepository.findById(id);
-
-
-        if (board.getUserId() != sessionUser.getId()) {
+        if (board.getUserId() != sessionUser.getId()){
             request.setAttribute("status", 403);
-            request.setAttribute("msg", "게시글을 삭제할 권한이 없습니다");
+            request.setAttribute("msg", "권한이 없습니다.");
             return "error/40x";
         }
 
@@ -90,51 +128,38 @@ public class BoardController {
         return "redirect:/";
     }
 
-
     @PostMapping("/board/save")
-    public String save(BoardRequest.SaveDTO requestDTO, HttpServletRequest request) {
-        // 1. 인증 체크
+    public String save(BoardRequest.SaveDTO requestDTO, HttpServletRequest request){
+        //  0. 인증 체크
         User sessionUser = (User) session.getAttribute("sessionUser");
-        if (sessionUser == null) {
+        if (sessionUser == null){
             return "redirect:/loginForm";
         }
 
-        // 2. 바디 데이터 확인 및 유효성 검사
+        //  1. body data 받기
         System.out.println(requestDTO);
 
-        if (requestDTO.getTitle().length() > 30) {
+        if (requestDTO.getTitle().length() > 30){
             request.setAttribute("status", 400);
-            request.setAttribute("msg", "title의 길이가 30자를 초과해서는 안되요");
-            return "error/40x"; // BadRequest
+            request.setAttribute("msg", "글 제목의 길이가 30자를 초과해서는 안돼");
+            return "error/40x";     //  BadRequest : 잘못된 요청
         }
 
-        // 3. 모델 위임
-        // insert into board_tb(title, content, user_id, created_at) values(?,?,?, now());
-        boardRepository.save(requestDTO, sessionUser.getId());
+        //  3. Model 위임
+        //  INSERT INTO board_tb(title, content, user_idm created_at) VALUES(?,?,?,now());
+        boardRepository.save(requestDTO, sessionUser.getId());   //  title과 content뿐, 나머지는 session에서 가져오기
 
         return "redirect:/";
     }
 
-
-    @GetMapping({"/", "/board"})
-    public String index(HttpServletRequest request) {
-
-        List<Board> boardList = boardRepository.findAll();
-        request.setAttribute("boardList", boardList);
-
-        return "index";
-    }
-
-    //   /board/saveForm 요청(Get)이 온다
+    //  게시글 작성
     @GetMapping("/board/saveForm")
     public String saveForm() {
 
-        //   session 영역에 sessionUser 키값에 user 객체 있는지 체크
+        //  Session 영역에 sessionUser 키값이 user객체에 있는지 체크
         User sessionUser = (User) session.getAttribute("sessionUser");
 
-        //   값이 null 이면 로그인 페이지로 리다이렉션
-        //   값이 null 이 아니면, /board/saveForm 으로 이동
-        if (sessionUser == null) {
+        if (sessionUser == null){
             return "redirect:/loginForm";
         }
         return "board/saveForm";
@@ -150,6 +175,8 @@ public class BoardController {
 
         request.setAttribute("board", boardDTO);
         request.setAttribute("replyList", replyDTOList);
+
+        System.out.println(replyDTOList);
 
         return "board/detail";
     }
