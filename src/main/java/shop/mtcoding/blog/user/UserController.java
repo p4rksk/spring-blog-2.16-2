@@ -3,6 +3,7 @@ package shop.mtcoding.blog.user;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,15 +24,21 @@ public class UserController {
     // select * from user_tb where username=? and password=?
     @PostMapping("/login")
     public String login(UserRequest.LoginDTO requestDTO) {
-
-
         System.out.println(requestDTO); // toString -> @Data
 
+        String rawPassword = requestDTO.getPassword();
+        String encPassword = BCrypt.hashpw(rawPassword,BCrypt.gensalt());
+        requestDTO.setPassword(encPassword);
+
         if (requestDTO.getUsername().length() < 3) {
-            return "error/400"; // ViewResolver 설정이 되어 있음. (앞 경로, 뒤 경로)
+            throw new RuntimeException("유저네임의 길이가 너무 달라요");
         }
 
-        User user = userRepository.findByUsernameAndPassword(requestDTO);
+        User user = userRepository.findByUsername(requestDTO.getUsername());
+
+        if (!BCrypt.checkpw(requestDTO.getPassword(),user.getPassword())){
+            throw new RuntimeException("패스워드가 틀렸습니다.");
+        }
             session.setAttribute("sessionUser", user); // 락카에 담음 (StateFul)
 
 
