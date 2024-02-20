@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import shop.mtcoding.blog._core.util.Script;
 
 
 @RequiredArgsConstructor // final이 붙은 애들에 대한 생성자를 만들어줌
@@ -41,11 +43,16 @@ public class UserController {
     }
 
     @PostMapping("/join")
-    public String join(UserRequest.JoinDTO requestDTO) {
+    public @ResponseBody String join(UserRequest.JoinDTO requestDTO) { //@ResponseBody를 붙이면 메세지 자체를 그대로 리턴한다.
         System.out.println(requestDTO);
 
-        userRepository.save(requestDTO); // 모델에 위임하기
-        return "redirect:/loginForm";
+        try {
+            userRepository.save(requestDTO); // 모델에 위임하기
+        }catch (Exception e){
+            return Script.back("아이디가 중복 됐습니다.");
+        }
+        return Script.href("/loginForm");
+
     }
 
     @GetMapping("/joinForm")
