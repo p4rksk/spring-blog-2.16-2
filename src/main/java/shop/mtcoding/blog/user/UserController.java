@@ -32,26 +32,22 @@ public class UserController {
         }
 
         User user = userRepository.findByUsernameAndPassword(requestDTO);
-
-        if (user == null) { // 조회 안됨 (401)
-            return "error/401";
-        } else { // 조회 됐음 (인증됨)
             session.setAttribute("sessionUser", user); // 락카에 담음 (StateFul)
-        }
+
 
         return "redirect:/"; // 컨트롤러가 존재하면 무조건 redirect 외우기
     }
 
     @PostMapping("/join")
-    public @ResponseBody String join(UserRequest.JoinDTO requestDTO) { //@ResponseBody를 붙이면 메세지 자체를 그대로 리턴한다.
+    public String join(UserRequest.JoinDTO requestDTO) { //@ResponseBody를 붙이면 메세지 자체를 그대로 리턴한다.
         System.out.println(requestDTO);
 
         try {
             userRepository.save(requestDTO); // 모델에 위임하기
         }catch (Exception e){
-            return Script.back("아이디가 중복 됐습니다.");
+            throw new RuntimeException("아이디가 중복 됐습니다.");
         }
-        return Script.href("/loginForm");
+        return "redirect:/loginForm";
 
     }
 
