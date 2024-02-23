@@ -30,7 +30,7 @@ public class UserRepository {
     }
 
     public User findByUsername(String username) {
-        Query query = em.createNativeQuery("select * from user_tb where username=? and password=?", User.class);
+        Query query = em.createNativeQuery("select * from user_tb where username=?", User.class);
         query.setParameter(1, username);
         try {
             User user = (User) query.getSingleResult();
