@@ -38,9 +38,6 @@ public class UserController {
     public String login(UserRequest.LoginDTO requestDTO) {
         System.out.println(requestDTO); // toString -> @Data
 
-        String rawPassword = requestDTO.getPassword();
-        String encPassword = BCrypt.hashpw(rawPassword,BCrypt.gensalt());
-        requestDTO.setPassword(encPassword);
 
         if (requestDTO.getUsername().length() < 3) {
             throw new RuntimeException("유저네임의 길이가 너무 달라요");
@@ -51,7 +48,7 @@ public class UserController {
         if (!BCrypt.checkpw(requestDTO.getPassword(),user.getPassword())){
             throw new RuntimeException("패스워드가 틀렸습니다.");
         }
-            session.setAttribute("sessionUser", user); // 락카에 담음 (StateFul)
+        session.setAttribute("sessionUser", user); // 락카에 담음 (StateFul)
 
 
         return "redirect:/"; // 컨트롤러가 존재하면 무조건 redirect 외우기
@@ -60,6 +57,10 @@ public class UserController {
     @PostMapping("/join")
     public String join(UserRequest.JoinDTO requestDTO) { //@ResponseBody를 붙이면 메세지 자체를 그대로 리턴한다.
         System.out.println(requestDTO);
+
+        String rawPassword = requestDTO.getPassword();
+        String encPassword = BCrypt.hashpw(rawPassword, BCrypt.gensalt());
+        requestDTO.setPassword(encPassword);
 
         try {
             userRepository.save(requestDTO); // 모델에 위임하기
